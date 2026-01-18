@@ -18,7 +18,7 @@ jobs:
 
     - name: Check code formatting
       run: |
-        find . -name "*.c" -o -name "*.h" | xargs clang-format --dry-run --Werror --style=file
+        find . -path "./code_sample/SD_Card_SPI_FatFs/Drivers" -prune -o -path "./code_sample/SD_Card_SPI_FatFs/Middlewares" -prune -o -path "./code_sample/SD_Card_SPI_FatFs/Core/Inc" -prune -o -name "*.c" -o -name "*.h" -print | xargs clang-format --dry-run --Werror --style=file
 
   build-check:
     runs-on: ubuntu-latest

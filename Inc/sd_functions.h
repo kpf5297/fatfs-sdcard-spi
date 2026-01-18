@@ -9,8 +9,8 @@
 #define __SD_FUNCTIONS_H__
 
 #include "fatfs.h"
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 /* Initialize SD card system (call before mounting or file operations). */
 int sd_system_init(SPI_HandleTypeDef *hspi, GPIO_TypeDef *cs_port, uint16_t cs_pin, bool use_dma);
@@ -27,7 +27,6 @@ int sd_append_file(const char *filename, const char *text);
 int sd_read_file(const char *filename, char *buffer, UINT bufsize, UINT *bytes_read);
 int sd_delete_file(const char *filename);
 int sd_rename_file(const char *oldname, const char *newname);
-
 
 /* Directory handling */
 FRESULT sd_create_directory(const char *path);

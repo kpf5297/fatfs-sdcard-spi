@@ -19,7 +19,8 @@ extern "C" {
 extern SD_Handle_t g_sd_handle;
 
 /* Initialize the global SD handle (call before mounting FatFs). */
-SD_Status SD_DiskIoInit(SPI_HandleTypeDef *hspi, GPIO_TypeDef *cs_port, uint16_t cs_pin, bool use_dma);
+SD_Status SD_DiskIoInit(SPI_HandleTypeDef *hspi, GPIO_TypeDef *cs_port, uint16_t cs_pin,
+                        bool use_dma);
 
 extern const Diskio_drvTypeDef SD_Driver;
 DSTATUS SD_disk_status(BYTE drv);

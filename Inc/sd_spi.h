@@ -10,9 +10,9 @@
 #define __SD_SPI_H__
 
 #include "main.h"
-#include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef USE_FREERTOS
 #include "FreeRTOS.h"
@@ -23,8 +23,8 @@
 extern "C" {
 #endif
 
-#define CMD0  (0)
-#define CMD8  (8)
+#define CMD0 (0)
+#define CMD8 (8)
 #define CMD17 (17)
 #define CMD24 (24)
 #define CMD55 (55)
@@ -54,27 +54,27 @@ typedef struct {
 } SD_Stats;
 
 typedef struct {
-    SPI_HandleTypeDef *hspi;        // SPI handle
-    GPIO_TypeDef *cs_port;          // Chip select GPIO port
-    uint16_t cs_pin;                // Chip select GPIO pin
-    GPIO_TypeDef *cd_port;          // Optional card-detect port
-    uint16_t cd_pin;                // Optional card-detect pin
-    bool cd_active_low;             // Card-detect polarity
-    bool has_cd;                    // Card-detect enabled
-    bool initialized;               // Card initialization status
-    bool is_sdhc;                   // SDHC/SDXC card flag
-    bool use_dma;                   // DMA usage flag
-    volatile bool dma_tx_done;      // DMA TX completion flag
-    volatile bool dma_rx_done;      // DMA RX completion flag
+    SPI_HandleTypeDef *hspi;   // SPI handle
+    GPIO_TypeDef *cs_port;     // Chip select GPIO port
+    uint16_t cs_pin;           // Chip select GPIO pin
+    GPIO_TypeDef *cd_port;     // Optional card-detect port
+    uint16_t cd_pin;           // Optional card-detect pin
+    bool cd_active_low;        // Card-detect polarity
+    bool has_cd;               // Card-detect enabled
+    bool initialized;          // Card initialization status
+    bool is_sdhc;              // SDHC/SDXC card flag
+    bool use_dma;              // DMA usage flag
+    volatile bool dma_tx_done; // DMA TX completion flag
+    volatile bool dma_rx_done; // DMA RX completion flag
 #ifdef USE_FREERTOS
-    SemaphoreHandle_t mutex;        // FreeRTOS mutex for thread safety
-    SemaphoreHandle_t dma_tx_sem;   // DMA TX completion semaphore
-    SemaphoreHandle_t dma_rx_sem;   // DMA RX completion semaphore
+    SemaphoreHandle_t mutex;      // FreeRTOS mutex for thread safety
+    SemaphoreHandle_t dma_tx_sem; // DMA TX completion semaphore
+    SemaphoreHandle_t dma_rx_sem; // DMA RX completion semaphore
 #endif
-    SD_Status last_status;          // Last operation status
-    uint32_t capacity_blocks;       // Card capacity in 512-byte blocks
-    uint32_t block_size;            // Logical block size (bytes)
-    SD_Stats stats;                 // Driver statistics
+    SD_Status last_status;    // Last operation status
+    uint32_t capacity_blocks; // Card capacity in 512-byte blocks
+    uint32_t block_size;      // Logical block size (bytes)
+    SD_Stats stats;           // Driver statistics
 } SD_Handle_t;
 
 /* Configuration defaults (override in build system or before include). */
@@ -133,8 +133,12 @@ typedef struct {
 #define SD_LOG(fmt, ...) printf(fmt, ##__VA_ARGS__)
 #define SD_LOG_ERROR(fmt, ...) printf(fmt, ##__VA_ARGS__)
 #else
-#define SD_LOG(...) do { } while (0)
-#define SD_LOG_ERROR(...) do { } while (0)
+#define SD_LOG(...)                                                                                \
+    do {                                                                                           \
+    } while (0)
+#define SD_LOG_ERROR(...)                                                                          \
+    do {                                                                                           \
+    } while (0)
 #endif
 
 /* Alignment and cache maintenance requirements apply when DMA is enabled. */
@@ -148,8 +152,8 @@ typedef struct {
  * @param use_dma Whether to use DMA for transfers
  * @return SD_Status
  */
-SD_Status SD_Init(SD_Handle_t *sd_handle, SPI_HandleTypeDef *hspi,
-                  GPIO_TypeDef *cs_port, uint16_t cs_pin, bool use_dma);
+SD_Status SD_Init(SD_Handle_t *sd_handle, SPI_HandleTypeDef *hspi, GPIO_TypeDef *cs_port,
+                  uint16_t cs_pin, bool use_dma);
 
 /**
  * @brief Initialize SD card communication
@@ -166,7 +170,8 @@ SD_Status SD_SPI_Init(SD_Handle_t *sd_handle);
  * @param active_low true if CD is active-low, false if active-high
  * @return SD_Status
  */
-SD_Status SD_SetCardDetect(SD_Handle_t *sd_handle, GPIO_TypeDef *cd_port, uint16_t cd_pin, bool active_low);
+SD_Status SD_SetCardDetect(SD_Handle_t *sd_handle, GPIO_TypeDef *cd_port, uint16_t cd_pin,
+                           bool active_low);
 
 /**
  * @brief Check if card is present (uses card-detect if configured)
@@ -197,7 +202,8 @@ SD_Status SD_ReadBlocks(SD_Handle_t *sd_handle, uint8_t *buff, uint32_t sector, 
  *
  * Note: If DMA is enabled and buffer alignment is insufficient, polling is used.
  */
-SD_Status SD_WriteBlocks(SD_Handle_t *sd_handle, const uint8_t *buff, uint32_t sector, uint32_t count);
+SD_Status SD_WriteBlocks(SD_Handle_t *sd_handle, const uint8_t *buff, uint32_t sector,
+                         uint32_t count);
 
 /**
  * @brief Read multiple blocks from SD card
@@ -207,7 +213,8 @@ SD_Status SD_WriteBlocks(SD_Handle_t *sd_handle, const uint8_t *buff, uint32_t s
  * @param count Number of sectors to read
  * @return SD_Status
  */
-SD_Status SD_ReadMultiBlocks(SD_Handle_t *sd_handle, uint8_t *buff, uint32_t sector, uint32_t count);
+SD_Status SD_ReadMultiBlocks(SD_Handle_t *sd_handle, uint8_t *buff, uint32_t sector,
+                             uint32_t count);
 
 /**
  * @brief Write multiple blocks to SD card
@@ -217,7 +224,8 @@ SD_Status SD_ReadMultiBlocks(SD_Handle_t *sd_handle, uint8_t *buff, uint32_t sec
  * @param count Number of sectors to write
  * @return SD_Status
  */
-SD_Status SD_WriteMultiBlocks(SD_Handle_t *sd_handle, const uint8_t *buff, uint32_t sector, uint32_t count);
+SD_Status SD_WriteMultiBlocks(SD_Handle_t *sd_handle, const uint8_t *buff, uint32_t sector,
+                              uint32_t count);
 
 /**
  * @brief Check if card is SDHC/SDXC
