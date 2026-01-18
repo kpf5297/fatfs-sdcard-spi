@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  format-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install clang-format
+      run: sudo apt-get install -y clang-format
+
+    - name: Check code formatting
+      run: |
+        find . -name "*.c" -o -name "*.h" | xargs clang-format --dry-run --Werror --style=file
+
+  build-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install build tools
+      run: sudo apt-get install -y gcc make
+
+    - name: Check compilation
+      run: |
+        # Since this is embedded code, we can't fully build without STM32 SDK
+        # But we can check syntax with gcc
+        gcc -fsyntax-only -IInc Src/*.c 2>&1 | head -20

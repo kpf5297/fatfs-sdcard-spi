@@ -1,0 +1,40 @@
+# Build artifacts
+build/
+Debug/
+Release/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+
+# STM32 specific
+*.map
+*.list
+*.elf
+*.hex
+*.bin
+*.axf
+*.srec
+*.out
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+
+# Logs
+*.log
