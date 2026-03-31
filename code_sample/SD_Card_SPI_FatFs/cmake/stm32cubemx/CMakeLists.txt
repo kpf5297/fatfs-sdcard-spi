@@ -24,7 +24,7 @@ set(MX_Include_Dirs
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/CMSIS/Include
 )
 
-# STM32CubeMX generated application sources
+# STM32CubeMX generated application sources (excluding sd_card, which is now a modular library)
 set(MX_Application_Src
     ${CMAKE_CURRENT_SOURCE_DIR}/../../FATFS/Target/user_diskio.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../FATFS/App/fatfs.c
@@ -39,12 +39,11 @@ set(MX_Application_Src
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/stm32f4xx_hal_timebase_tim.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/sysmem.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Core/Src/syscalls.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/sd_card/Src/sd_functions.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/sd_card/Src/sd_spi.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/sd_card/Src/sd_diskio_spi.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/sd_card/Src/sd_benchmark.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../startup_stm32f446xx.s
 )
+
+# Add modular SD Card driver as subdirectory library
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../Drivers/sd_card sd_card_driver)
 
 # STM32 HAL/LL Drivers
 set(STM32_Drivers_Src
@@ -100,8 +99,8 @@ set(MX_LINK_LIBS
     STM32_Drivers
     ${TOOLCHAIN_LINK_LIBRARIES}
     FreeRTOS
-	FatFs
-	
+    FatFs
+    sd_card
 )
 # Interface library for includes and symbols
 add_library(stm32cubemx INTERFACE)

@@ -17,19 +17,36 @@
 #ifdef USE_FREERTOS
 #include "FreeRTOS.h"
 #include "semphr.h"
+#include "task.h"
+
+/* FreeRTOS Compliance Validation */
+#if (configUSE_MUTEXES != 1)
+#error "FreeRTOS: configUSE_MUTEXES must be enabled (set to 1 in FreeRTOSConfig.h)"
 #endif
+
+#if (configTICK_RATE_HZ < 1000)
+#warning "FreeRTOS: configTICK_RATE_HZ is < 1000 Hz; DMA operations may timeout. " \
+         "Recommended: set to 1000 or higher in FreeRTOSConfig.h"
+#endif
+
+#if (configSUPPORT_DYNAMIC_ALLOCATION != 1) && (configSUPPORT_STATIC_ALLOCATION != 1)
+#error "FreeRTOS: Either configSUPPORT_DYNAMIC_ALLOCATION or " \
+       "configSUPPORT_STATIC_ALLOCATION must be enabled in FreeRTOSConfig.h"
+#endif
+
+#endif /* USE_FREERTOS */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define CMD0 (0)
-#define CMD8 (8)
-#define CMD17 (17)
-#define CMD24 (24)
-#define CMD55 (55)
-#define CMD58 (58)
-#define ACMD41 (41)
+#define SD_CMD0  (0)
+#define SD_CMD8  (8)
+#define SD_CMD17 (17)
+#define SD_CMD24 (24)
+#define SD_CMD55 (55)
+#define SD_CMD58 (58)
+#define SD_ACMD41 (41)
 
 typedef enum {
     SD_OK = 0,
@@ -66,6 +83,7 @@ typedef struct {
     bool use_dma;              // DMA usage flag
     volatile bool dma_tx_done; // DMA TX completion flag
     volatile bool dma_rx_done; // DMA RX completion flag
+    volatile bool dma_error;   // DMA transfer error flag
 #ifdef USE_FREERTOS
     SemaphoreHandle_t mutex;      // FreeRTOS mutex for thread safety
     SemaphoreHandle_t dma_tx_sem; // DMA TX completion semaphore

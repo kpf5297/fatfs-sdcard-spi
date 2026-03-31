@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /Users/kevinfox/Code/fatfs-sdcard-spi/Drivers/sd_card -type f -exec ls -lh {})",
+      "Read(//Users/kevinfox/Code/fatfs-sdcard-spi/**)"
+    ]
+  }
+}

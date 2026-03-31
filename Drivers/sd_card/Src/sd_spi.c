@@ -32,6 +32,7 @@
 static StaticSemaphore_t sd_mutex_buffer;
 static StaticSemaphore_t sd_dma_tx_buffer;
 static StaticSemaphore_t sd_dma_rx_buffer;
+static bool s_static_alloc_used = false;
 #endif
 
 /* Single SPI SD instance for DMA callbacks. */
@@ -155,6 +156,7 @@ static SD_Status SD_SPI_Transmit(SD_Handle_t *sd_handle, const uint8_t *buffer, 
 #endif
         SD_CacheClean(buffer, len);
         sd_handle->dma_tx_done = false;
+        sd_handle->dma_error = false;
         if (HAL_SPI_Transmit_DMA(sd_handle->hspi, (uint8_t *)buffer, len) != HAL_OK) {
             return SD_ERROR;
         }
@@ -163,14 +165,20 @@ static SD_Status SD_SPI_Transmit(SD_Handle_t *sd_handle, const uint8_t *buffer, 
             (void)HAL_SPI_Abort(sd_handle->hspi);
             return SD_TIMEOUT;
         }
+        if (sd_handle->dma_error) {
+            return SD_ERROR;
+        }
 #else
-        uint32_t timeout = HAL_GetTick() + SD_DMA_TIMEOUT_MS;
-        while (!sd_handle->dma_tx_done && HAL_GetTick() < timeout) {
+        uint32_t dma_start = HAL_GetTick();
+        while (!sd_handle->dma_tx_done && (HAL_GetTick() - dma_start) < SD_DMA_TIMEOUT_MS) {
             SD_BackoffDelay();
         }
         if (!sd_handle->dma_tx_done) {
             (void)HAL_SPI_Abort(sd_handle->hspi);
             return SD_TIMEOUT;
+        }
+        if (sd_handle->dma_error) {
+            return SD_ERROR;
         }
 #endif
         return SD_OK;
@@ -190,6 +198,7 @@ static SD_Status SD_SPI_TransmitReceive(SD_Handle_t *sd_handle, const uint8_t *t
         SD_CacheClean(tx, len);
         SD_CacheInvalidate(rx, len);
         sd_handle->dma_rx_done = false;
+        sd_handle->dma_error = false;
         if (HAL_SPI_TransmitReceive_DMA(sd_handle->hspi, (uint8_t *)tx, rx, len) != HAL_OK) {
             return SD_ERROR;
         }
@@ -198,14 +207,20 @@ static SD_Status SD_SPI_TransmitReceive(SD_Handle_t *sd_handle, const uint8_t *t
             (void)HAL_SPI_Abort(sd_handle->hspi);
             return SD_TIMEOUT;
         }
+        if (sd_handle->dma_error) {
+            return SD_ERROR;
+        }
 #else
-        uint32_t timeout = HAL_GetTick() + SD_DMA_TIMEOUT_MS;
-        while (!sd_handle->dma_rx_done && HAL_GetTick() < timeout) {
+        uint32_t dma_start = HAL_GetTick();
+        while (!sd_handle->dma_rx_done && (HAL_GetTick() - dma_start) < SD_DMA_TIMEOUT_MS) {
             SD_BackoffDelay();
         }
         if (!sd_handle->dma_rx_done) {
             (void)HAL_SPI_Abort(sd_handle->hspi);
             return SD_TIMEOUT;
+        }
+        if (sd_handle->dma_error) {
+            return SD_ERROR;
         }
 #endif
         SD_CacheInvalidate(rx, len);
@@ -229,7 +244,7 @@ static SD_Status SD_ReceiveByte(SD_Handle_t *sd_handle, uint8_t *data) {
 }
 
 static SD_Status SD_WaitReady(SD_Handle_t *sd_handle, uint32_t timeout_ms) {
-    uint32_t timeout = HAL_GetTick() + timeout_ms;
+    uint32_t start = HAL_GetTick();
     uint8_t resp = 0x00U;
     uint32_t io_timeout = (timeout_ms < SD_SPI_IO_TIMEOUT_MS) ? timeout_ms : SD_SPI_IO_TIMEOUT_MS;
     if (io_timeout == 0U) {
@@ -244,13 +259,13 @@ static SD_Status SD_WaitReady(SD_Handle_t *sd_handle, uint32_t timeout_ms) {
             return SD_OK;
         }
         SD_BackoffDelay();
-    } while (HAL_GetTick() < timeout);
+    } while ((HAL_GetTick() - start) < timeout_ms);
 
     return SD_TIMEOUT;
 }
 
 static SD_Status SD_WaitDataToken(SD_Handle_t *sd_handle, uint32_t timeout_ms) {
-    uint32_t timeout = HAL_GetTick() + timeout_ms;
+    uint32_t start = HAL_GetTick();
     uint8_t token = 0x00U;
     uint32_t io_timeout = (timeout_ms < SD_SPI_IO_TIMEOUT_MS) ? timeout_ms : SD_SPI_IO_TIMEOUT_MS;
     if (io_timeout == 0U) {
@@ -265,7 +280,7 @@ static SD_Status SD_WaitDataToken(SD_Handle_t *sd_handle, uint32_t timeout_ms) {
             return SD_OK;
         }
         SD_BackoffDelay();
-    } while (HAL_GetTick() < timeout);
+    } while ((HAL_GetTick() - start) < timeout_ms);
 
     return SD_TIMEOUT;
 }
@@ -378,7 +393,7 @@ static SD_Status SD_SetBlockLength(SD_Handle_t *sd_handle) {
 static SD_Status SD_ReadSingleBlockInternal(SD_Handle_t *sd_handle, uint8_t *buff, uint32_t address) {
     SD_Select(sd_handle);
     uint8_t response = 0xFFU;
-    SD_Status status = SD_SendCommand(sd_handle, CMD17, address, 0xFFU, &response);
+    SD_Status status = SD_SendCommand(sd_handle, SD_CMD17, address, 0xFFU, &response);
     if (status != SD_OK || response != 0x00U) {
         SD_Deselect(sd_handle);
         (void)SD_TransmitByte(sd_handle, 0xFFU);
@@ -411,7 +426,7 @@ static SD_Status SD_ReadSingleBlockInternal(SD_Handle_t *sd_handle, uint8_t *buf
 static SD_Status SD_WriteSingleBlockInternal(SD_Handle_t *sd_handle, const uint8_t *buff, uint32_t address) {
     SD_Select(sd_handle);
     uint8_t response = 0xFFU;
-    SD_Status status = SD_SendCommand(sd_handle, CMD24, address, 0xFFU, &response);
+    SD_Status status = SD_SendCommand(sd_handle, SD_CMD24, address, 0xFFU, &response);
     if (status != SD_OK || response != 0x00U) {
         SD_Deselect(sd_handle);
         (void)SD_TransmitByte(sd_handle, 0xFFU);
@@ -575,6 +590,7 @@ void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) {
 
 void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi) {
     if (s_dma_owner && s_dma_owner->hspi == hspi) {
+        s_dma_owner->dma_error = true;
         s_dma_owner->dma_tx_done = true;
         s_dma_owner->dma_rx_done = true;
 #if defined(USE_FREERTOS)
@@ -610,6 +626,10 @@ SD_Status SD_Init(SD_Handle_t *sd_handle, SPI_HandleTypeDef *hspi,
 
 #if defined(USE_FREERTOS)
 #if (configSUPPORT_STATIC_ALLOCATION == 1)
+    if (s_static_alloc_used) {
+        return SD_ERROR;
+    }
+    s_static_alloc_used = true;
     sd_handle->mutex = xSemaphoreCreateMutexStatic(&sd_mutex_buffer);
     sd_handle->dma_tx_sem = xSemaphoreCreateBinaryStatic(&sd_dma_tx_buffer);
     sd_handle->dma_rx_sem = xSemaphoreCreateBinaryStatic(&sd_dma_rx_buffer);
@@ -647,6 +667,9 @@ void SD_DeInit(SD_Handle_t *sd_handle) {
         vSemaphoreDelete(sd_handle->dma_rx_sem);
         sd_handle->dma_rx_sem = NULL;
     }
+#if (configSUPPORT_STATIC_ALLOCATION == 1)
+    s_static_alloc_used = false;
+#endif
 #endif
 
     sd_handle->initialized = false;
@@ -709,18 +732,18 @@ SD_Status SD_SPI_Init(SD_Handle_t *sd_handle) {
     SD_Status status = SD_ERROR;
     uint8_t response = 0xFFU;
     uint8_t r7[4] = {0};
-    uint32_t deadline = HAL_GetTick() + SD_INIT_TIMEOUT_MS;
+    uint32_t init_start = HAL_GetTick();
 
     do {
         SD_Select(sd_handle);
-        status = SD_SendCommand(sd_handle, CMD0, 0, 0x95U, &response);
+        status = SD_SendCommand(sd_handle, SD_CMD0, 0, 0x95U, &response);
         SD_Deselect(sd_handle);
         (void)SD_TransmitByte(sd_handle, 0xFFU);
         if (status == SD_OK && response == 0x01U) {
             break;
         }
         SD_BackoffDelay();
-    } while (HAL_GetTick() < deadline);
+    } while ((HAL_GetTick() - init_start) < SD_INIT_TIMEOUT_MS);
 
     if (response != 0x01U) {
         SD_Unlock(sd_handle);
@@ -728,7 +751,7 @@ SD_Status SD_SPI_Init(SD_Handle_t *sd_handle) {
     }
 
     SD_Select(sd_handle);
-    status = SD_SendCommand(sd_handle, CMD8, 0x000001AAU, 0x87U, &response);
+    status = SD_SendCommand(sd_handle, SD_CMD8, 0x000001AAU, 0x87U, &response);
     if (status == SD_OK) {
         for (uint8_t i = 0; i < 4; i++) {
             (void)SD_ReceiveByte(sd_handle, &r7[i]);
@@ -739,18 +762,18 @@ SD_Status SD_SPI_Init(SD_Handle_t *sd_handle) {
 
     bool sdv2 = (status == SD_OK && response == 0x01U && r7[2] == 0x01U && r7[3] == 0xAAU);
 
-    deadline = HAL_GetTick() + SD_INIT_TIMEOUT_MS;
+    init_start = HAL_GetTick();
     do {
         SD_Select(sd_handle);
-        (void)SD_SendCommand(sd_handle, CMD55, 0, 0xFFU, &response);
-        status = SD_SendCommand(sd_handle, ACMD41, sdv2 ? 0x40000000U : 0, 0xFFU, &response);
+        (void)SD_SendCommand(sd_handle, SD_CMD55, 0, 0xFFU, &response);
+        status = SD_SendCommand(sd_handle, SD_ACMD41, sdv2 ? 0x40000000U : 0, 0xFFU, &response);
         SD_Deselect(sd_handle);
         (void)SD_TransmitByte(sd_handle, 0xFFU);
         if (status == SD_OK && response == 0x00U) {
             break;
         }
         SD_BackoffDelay();
-    } while (HAL_GetTick() < deadline);
+    } while ((HAL_GetTick() - init_start) < SD_INIT_TIMEOUT_MS);
 
     if (response != 0x00U) {
         SD_Unlock(sd_handle);
@@ -759,7 +782,7 @@ SD_Status SD_SPI_Init(SD_Handle_t *sd_handle) {
 
     sd_handle->is_sdhc = false;
     SD_Select(sd_handle);
-    status = SD_SendCommand(sd_handle, CMD58, 0, 0xFFU, &response);
+    status = SD_SendCommand(sd_handle, SD_CMD58, 0, 0xFFU, &response);
     if (status == SD_OK && response == 0x00U) {
         uint8_t ocr[4] = {0};
         for (uint8_t i = 0; i < 4; i++) {
@@ -814,8 +837,11 @@ SD_Status SD_ReadBlocks(SD_Handle_t *sd_handle, uint8_t *buff, uint32_t sector, 
         return SD_RecordStatus(sd_handle, SD_ERROR);
     }
 
-    sd_handle->stats.read_ops++;
-    sd_handle->stats.read_blocks += count;
+    if (sd_handle->capacity_blocks > 0 &&
+        (count > sd_handle->capacity_blocks || sector > sd_handle->capacity_blocks - count)) {
+        SD_Unlock(sd_handle);
+        return SD_RecordStatus(sd_handle, SD_PARAM);
+    }
 
     uint32_t address = sd_handle->is_sdhc ? sector : (sector * SD_BLOCK_SIZE);
     SD_Status status = SD_OK;
@@ -830,6 +856,11 @@ SD_Status SD_ReadBlocks(SD_Handle_t *sd_handle, uint8_t *buff, uint32_t sector, 
         }
     } else {
         status = SD_ReadMultiBlocksInternal(sd_handle, buff, sector, count);
+    }
+
+    if (status == SD_OK) {
+        sd_handle->stats.read_ops++;
+        sd_handle->stats.read_blocks += count;
     }
 
     SD_Unlock(sd_handle);
@@ -853,10 +884,16 @@ SD_Status SD_ReadMultiBlocks(SD_Handle_t *sd_handle, uint8_t *buff, uint32_t sec
         return SD_RecordStatus(sd_handle, lock_status);
     }
 
-    sd_handle->stats.read_ops++;
-    sd_handle->stats.read_blocks += count;
+    if (!sd_handle->initialized) {
+        SD_Unlock(sd_handle);
+        return SD_RecordStatus(sd_handle, SD_ERROR);
+    }
 
     SD_Status status = SD_ReadMultiBlocksInternal(sd_handle, buff, sector, count);
+    if (status == SD_OK) {
+        sd_handle->stats.read_ops++;
+        sd_handle->stats.read_blocks += count;
+    }
     SD_Unlock(sd_handle);
     return SD_RecordStatus(sd_handle, status);
 }
@@ -883,8 +920,11 @@ SD_Status SD_WriteBlocks(SD_Handle_t *sd_handle, const uint8_t *buff, uint32_t s
         return SD_RecordStatus(sd_handle, SD_ERROR);
     }
 
-    sd_handle->stats.write_ops++;
-    sd_handle->stats.write_blocks += count;
+    if (sd_handle->capacity_blocks > 0 &&
+        (count > sd_handle->capacity_blocks || sector > sd_handle->capacity_blocks - count)) {
+        SD_Unlock(sd_handle);
+        return SD_RecordStatus(sd_handle, SD_PARAM);
+    }
 
     uint32_t address = sd_handle->is_sdhc ? sector : (sector * SD_BLOCK_SIZE);
     SD_Status status = SD_OK;
@@ -899,6 +939,11 @@ SD_Status SD_WriteBlocks(SD_Handle_t *sd_handle, const uint8_t *buff, uint32_t s
         }
     } else {
         status = SD_WriteMultiBlocksInternal(sd_handle, buff, sector, count);
+    }
+
+    if (status == SD_OK) {
+        sd_handle->stats.write_ops++;
+        sd_handle->stats.write_blocks += count;
     }
 
     SD_Unlock(sd_handle);
@@ -922,10 +967,11 @@ SD_Status SD_WriteMultiBlocks(SD_Handle_t *sd_handle, const uint8_t *buff, uint3
         return SD_RecordStatus(sd_handle, lock_status);
     }
 
-    sd_handle->stats.write_ops++;
-    sd_handle->stats.write_blocks += count;
-
     SD_Status status = SD_WriteMultiBlocksInternal(sd_handle, buff, sector, count);
+    if (status == SD_OK) {
+        sd_handle->stats.write_ops++;
+        sd_handle->stats.write_blocks += count;
+    }
     SD_Unlock(sd_handle);
     return SD_RecordStatus(sd_handle, status);
 }

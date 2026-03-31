@@ -11,15 +11,7 @@
 #include "main.h"
 #include "sd_functions.h"
 
-#define USE_DMA 1
-#define TEST_SIZE 512000 // 500KB Test File
-
-
-#if USE_DMA
-#define MODE_STR "DMA"
-#else
-#define MODE_STR "Polling"
-#endif
+#define TEST_SIZE 512000 /* 500 KB test file */
 
 uint32_t sd_benchmark_write(const char *filename, uint32_t size_bytes) {
     FIL file;
@@ -48,7 +40,8 @@ uint32_t sd_benchmark_write(const char *filename, uint32_t size_bytes) {
 
     f_close(&file);
     uint32_t elapsed = HAL_GetTick() - start;
-    printf("[%s] Write %lu bytes in %lu ms\r\n", MODE_STR, size_bytes, elapsed);
+    printf("[%s] Write %lu bytes in %lu ms\r\n",
+           g_sd_handle.use_dma ? "DMA" : "Polling", size_bytes, elapsed);
     return elapsed;
 }
 
@@ -78,7 +71,8 @@ uint32_t sd_benchmark_read(const char *filename, uint32_t size_bytes) {
 
     f_close(&file);
     uint32_t elapsed = HAL_GetTick() - start;
-    printf("[%s] Read %lu bytes in %lu ms\r\n", MODE_STR, size_bytes, elapsed);
+    printf("[%s] Read %lu bytes in %lu ms\r\n",
+           g_sd_handle.use_dma ? "DMA" : "Polling", size_bytes, elapsed);
     return elapsed;
 }
 
