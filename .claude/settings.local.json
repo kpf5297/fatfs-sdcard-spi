@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(find /Users/kevinfox/Code/fatfs-sdcard-spi/Drivers/sd_card -type f -exec ls -lh {})",
-      "Read(//Users/kevinfox/Code/fatfs-sdcard-spi/**)"
+      "Read(//Users/kevinfox/Code/fatfs-sdcard-spi/**)",
+      "Bash(cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug)",
+      "Bash(cmake --build build)",
+      "Bash(ctest --test-dir build --output-on-failure -V)",
+      "Bash(cmake --build tests/build --parallel)",
+      "Bash(ctest --test-dir tests/build --output-on-failure)"
     ]
   }
 }

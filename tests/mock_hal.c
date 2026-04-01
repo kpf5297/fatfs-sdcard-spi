@@ -13,7 +13,7 @@
  * SPI queue
  * ----------------------------------------------------------------------- */
 
-#define SPI_QUEUE_SIZE 4096
+#define SPI_QUEUE_SIZE 8192
 
 static uint8_t           s_queue[SPI_QUEUE_SIZE];
 static int               s_head  = 0;
